@@ -13,7 +13,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:pdf_ocr/clients/pdf_ocr_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,7 +21,6 @@ const paper = Color(0xFFF7F5F0);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await PdfOcrClient.init();
   final store = LibraryStore();
   await store.load();
   runApp(NihongoReaderApp(store: store));
