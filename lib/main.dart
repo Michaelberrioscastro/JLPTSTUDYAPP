@@ -188,14 +188,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
   String query = '';
 
   Future<void> addBook() async {
-    final result = await FilePicker.platform.pickFiles(
+    final picked = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: const ['pdf', 'epub', 'docx', 'doc'],
-      withData: false,
     );
-    if (result == null || result.files.isEmpty) return;
+    if (picked == null) return;
     try {
-      await widget.store.importFile(result.files.single);
+      await widget.store.importFile(picked);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
@@ -691,7 +690,7 @@ class _EpubReaderPaneState extends State<EpubReaderPane> {
   @override
   Widget build(BuildContext context) {
     return EpubViewer(
-      epubSource: EpubSource.fromFile(widget.book.path),
+      epubSource: EpubSource.fromFile(File(widget.book.path)),
       epubController: controller,
       initialCfi: cfi,
       displaySettings: const EpubDisplaySettings(
