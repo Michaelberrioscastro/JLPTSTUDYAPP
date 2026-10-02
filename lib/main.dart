@@ -595,7 +595,7 @@ class _BookCard extends StatelessWidget {
                       child: PopupMenuButton<String>(
                         icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
                         onSelected: (v) async {
-                          if (v == 'delete') await onDelete();
+                          if (v == 'delete') onDelete();
                         },
                         itemBuilder: (_) => const [
                           PopupMenuItem(
