@@ -708,7 +708,7 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
                   child: AnimatedBuilder(
                   animation: viewer,
                   builder: (context, _) => Text(
-                    'Página ' + (viewer.currentPage + 1).toString() + ' / ' + viewer.pageCount.toString()',
+                    'Página ' + (viewer.currentPage + 1).toString() + ' / ' + viewer.pageCount.toString(),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .2),
                   ),
                 ),
