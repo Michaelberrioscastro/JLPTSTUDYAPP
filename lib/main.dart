@@ -657,17 +657,26 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     return Stack(
       children: [
         Positioned.fill(
-          child: PdfViewer(
+          child: Listener(
+            behavior: HitTestBehavior.deferToChild,
+            onPointerDown: (_) => showChrome(),
+            child: PdfViewer(
             controller: viewer, editing: editing, documentId: widget.book.id,
             backgroundColor: const Color(0xFFE7E4DE),
             initialFit: PdfViewerFit.page, contextMenuEnabled: true,
             textSelectionEditing: true, textSelectionMarkup: true,
+            ),
           ),
         ),
         Positioned(
           top: 14, left: 14, right: 14,
-          child: SafeArea(
-            bottom: false,
+          child: AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: SafeArea(
+                bottom: false,
             child: Row(
               children: [
                 _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -683,6 +692,7 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
                   IconButton(tooltip: 'Guardar', onPressed: savePdf, icon: const Icon(Icons.cloud_done_outlined, size: 20)),
                 ])),
               ],
+              ),
             ),
           ),
         ),
@@ -691,11 +701,14 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
           child: SafeArea(
             top: false,
             child: Center(
-              child: _ReaderPill(
-                child: AnimatedBuilder(
+              child: AnimatedOpacity(
+                opacity: _chromeVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: _ReaderPill(
+                  child: AnimatedBuilder(
                   animation: viewer,
                   builder: (context, _) => Text(
-                    '\${viewer.pageCount == 0 ? 0 : viewer.currentPage + 1} / \${viewer.pageCount}',
+                    'Página \${viewer.currentPage + 1} / \${viewer.pageCount}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .2),
                   ),
                 ),
