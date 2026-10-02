@@ -1,5 +1,6 @@
 
-import com.android.build.api.variant.AndroidComponentsExtension
+import com.android.build.api.dsl.ApplicationExtension
+import com.android.build.api.dsl.LibraryExtension
 
 allprojects {
     repositories {
@@ -22,18 +23,14 @@ subprojects {
     project.evaluationDependsOn(":app")
 
     plugins.withId("com.android.library") {
-        extensions.configure<AndroidComponentsExtension<*, *, *>> {
-            finalizeDsl { extension ->
-                extension.compileSdk = 36
-            }
+        extensions.configure<LibraryExtension> {
+            compileSdk = 36
         }
     }
 
     plugins.withId("com.android.application") {
-        extensions.configure<AndroidComponentsExtension<*, *, *>> {
-            finalizeDsl { extension ->
-                extension.compileSdk = 36
-            }
+        extensions.configure<ApplicationExtension> {
+            compileSdk = 36
         }
     }
 }
