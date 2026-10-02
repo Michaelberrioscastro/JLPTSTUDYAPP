@@ -19,10 +19,16 @@ android {
         applicationId = "com.example.nihongo_reader"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    dependencies {
+        // Bundled ML Kit models: OCR works without downloading a model at runtime.
+        implementation("com.google.mlkit:text-recognition:16.0.1")
+        implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
     }
 
     buildTypes {
