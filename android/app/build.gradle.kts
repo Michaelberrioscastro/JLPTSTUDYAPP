@@ -27,8 +27,13 @@ android {
 
     dependencies {
         // Bundled ML Kit models: OCR works without downloading a model at runtime.
+        // The Flutter plugin references all script option classes from its
+        // native bridge, so include all bundled script modules for R8 release builds.
         implementation("com.google.mlkit:text-recognition:16.0.1")
+        implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+        implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
         implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+        implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     }
 
     buildTypes {
