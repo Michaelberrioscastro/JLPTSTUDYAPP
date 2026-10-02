@@ -1,6 +1,5 @@
 
-import com.android.build.api.dsl.ApplicationExtension
-import com.android.build.api.dsl.LibraryExtension
+import com.android.build.api.variant.AndroidComponentsExtension
 
 allprojects {
     repositories {
@@ -23,25 +22,21 @@ subprojects {
     project.evaluationDependsOn(":app")
 
     plugins.withId("com.android.library") {
-        extensions.configure<LibraryExtension> {
-            compileSdk = 36
+        extensions.configure<AndroidComponentsExtension<*, *, *>> {
+            finalizeDsl { extension ->
+                extension.compileSdk = 36
+            }
         }
     }
 
     plugins.withId("com.android.application") {
-        extensions.configure<ApplicationExtension> {
-            compileSdk = 36
+        extensions.configure<AndroidComponentsExtension<*, *, *>> {
+            finalizeDsl { extension ->
+                extension.compileSdk = 36
+            }
         }
     }
 }
-
-gradle.projectsEvaluated {
-    subprojects.forEach { project ->
-        project.extensions.findByType<LibraryExtension>()?.compileSdk = 36
-        project.extensions.findByType<ApplicationExtension>()?.compileSdk = 36
-    }
-}
-
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
