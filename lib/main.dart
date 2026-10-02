@@ -1094,7 +1094,7 @@ class AiService {
     required String question,
   }) async {
     final endpoint = await secure.read(key: 'ai.endpoint') ??
-        'https://api.openai.com/v1/chat/completions';
+        'https://api.openai.com/v1/responses';
     final model = await secure.read(key: 'ai.model') ?? 'gpt-6-luna';
     final key = await secure.read(key: 'ai.key') ?? '';
 
@@ -1119,11 +1119,8 @@ class AiService {
       },
       body: jsonEncode({
         'model': model,
-        'messages': [
-          {'role': 'system', 'content': system},
-          {'role': 'user', 'content': question},
-        ],
-        'temperature': 0.2,
+        'instructions': system,
+        'input': question,
       }),
     );
 
@@ -1131,10 +1128,22 @@ class AiService {
       throw StateError('HTTP ' + response.statusCode.toString());
     }
     final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final choices = data['choices'] as List<dynamic>? ?? const [];
-    if (choices.isEmpty) throw StateError('Respuesta vacía.');
-    final message = choices.first['message'] as Map<String, dynamic>?;
-    return (message?['content'] as String?) ?? 'Sin respuesta.';
+    final output = data['output'] as List<dynamic>? ?? const [];
+    final parts = <String>[];
+    for (final item in output) {
+      if (item is! Map<String, dynamic>) continue;
+      final content = item['content'] as List<dynamic>? ?? const [];
+      for (final part in content) {
+        if (part is Map<String, dynamic> &&
+            part['type'] == 'output_text' &&
+            part['text'] is String) {
+          parts.add(part['text'] as String);
+        }
+      }
+    }
+    final answer = parts.join('\n').trim();
+    if (answer.isEmpty) throw StateError('Respuesta vacía.');
+    return answer;
   }
 }
 
@@ -1417,7 +1426,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'El asistente usa un endpoint compatible con Chat Completions. La API key se guarda en almacenamiento seguro. La app no puede usar tu suscripción de ChatGPT directamente: para IA real necesitas una clave de API.',
+            'El asistente usa la API de Responses de OpenAI. La API key se guarda en almacenamiento seguro. La app no puede usar tu suscripción de ChatGPT directamente: para IA real necesitas una clave de API.',
           ),
           const SizedBox(height: 18),
           TextField(
