@@ -9,6 +9,8 @@ import 'package:docx_file_viewer/docx_file_viewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_epub_reader/flutter_epub_reader.dart';
+import 'package:pdf_document/pdf_document.dart';
+import 'package:pdf_ocr_ondevice/pdf_ocr_ondevice.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -587,7 +589,7 @@ class PdfReaderPane extends StatefulWidget {
 }
 
 class _PdfReaderPaneState extends State<PdfReaderPane> {
-  late final PdfEditingController editing;
+  late PdfEditingController editing;
   late final PdfViewerController viewer;
   Timer? _chromeTimer;
   bool _chromeVisible = false;
@@ -651,6 +653,63 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     setState(() {});
   }
 
+  Future<void> runOcr() async {
+    if (!PdfOcrModelManager.isSupported) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OCR local no está disponible en este dispositivo.')),
+        );
+      }
+      return;
+    }
+    showChrome();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preparando OCR local… La primera vez puede descargar el modelo.')),
+      );
+    }
+    PdfOcrModelManager? manager;
+    OnDeviceOcrEngine? engine;
+    try {
+      manager = PdfOcrModelManager();
+      final model = PdfOcrModels.ppOcrV5Mobile;
+      if (!await manager.isDownloaded(model)) {
+        await manager.download(model);
+      }
+      engine = await OnDeviceOcrEngine.fromDownloadedModel(manager, model);
+      final editor = PdfEditor(PdfDocument.open(editing.bytes));
+      for (var page = 0; page < editor.document.pageCount; page++) {
+        await editor.applyOcr(page, engine, pixelRatio: 2);
+      }
+      final ocrBytes = editor.save();
+      final oldEditing = editing;
+      editing = PdfEditingController(ocrBytes);
+      editing.preferences.fingerDrawsInk = false;
+      editing.preferences.color = const Color(0xFF263238);
+      editing.preferences.strokeWidth = 1.6;
+      editing.preferences.opacity = 0.88;
+      editing.preferences.showThumbnailSidebar = false;
+      editing.preferences.showBookmarkSidebar = false;
+      editing.preferences.showAnnotationSidebar = false;
+      oldEditing.dispose();
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('OCR listo: el texto de las páginas escaneadas ya se puede seleccionar y copiar.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo ejecutar OCR: $e')),
+        );
+      }
+    } finally {
+      await engine?.dispose();
+      manager?.close();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -687,7 +746,9 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
                           _ReaderToolButton(icon: Icons.pan_tool_outlined, label: 'Leer', active: editing.tool == null, onTap: () => setTool(null)),
                           _ReaderToolButton(icon: Icons.edit_rounded, label: 'Lápiz', active: editing.tool == PdfEditTool.ink, onTap: () => setTool(PdfEditTool.ink)),
                           _ReaderToolButton(icon: Icons.highlight_rounded, label: 'Marcar', active: editing.tool == PdfEditTool.highlight, onTap: () => setTool(PdfEditTool.highlight)),
-                          _ReaderToolButton(icon: Icons.auto_fix_high_rounded, label: 'Borrar', active: editing.tool == PdfEditTool.eraser, onTap: () => setTool(PdfEditTool.eraser)),
+                          _ReaderToolButton(icon: Icons.auto_fix_high_rounded, label: 'Goma', active: editing.tool == PdfEditTool.eraser, onTap: () => setTool(PdfEditTool.eraser)),
+                          _ReaderToolButton(icon: Icons.text_fields_rounded, label: 'Texto', active: editing.tool == PdfEditTool.freeText, onTap: () => setTool(PdfEditTool.freeText)),
+                          _ReaderToolButton(icon: Icons.document_scanner_rounded, label: 'OCR', active: false, onTap: runOcr),
                         ],
                       ),
                     ),
@@ -1106,7 +1167,7 @@ class LocalSensei {
     '先生': 'せんせい — profesor/a',
     '学生': 'がくせい — estudiante',
     '日本': 'にほん / にっぽん — Japón',
-    '日本語': 'にほんご — idioma japonés',
+    '日本語': 'にほんご (nihongo) — idioma japonés',
     '本': 'ほん — libro',
     '時間': 'じかん — tiempo / horas',
     '食べる': 'たべる — comer',
@@ -1128,9 +1189,16 @@ class LocalSensei {
     final q = question.toLowerCase();
     final text = selected.trim();
 
+    if (q.contains('nihongo') || q.contains('日本語')) {
+      return '日本語（にほんご / nihongo） significa «idioma japonés».\n\n'
+          '• 日本（にほん） = Japón\n'
+          '• 語（ご） = lenguaje / idioma en esta composición\n\n'
+          'Por eso 日本語 significa «idioma japonés».';
+    }
+
     if (q.contains('qué significa') || q.contains('que significa') ||
         q.contains('traduce') || q.contains('traduc') || q.contains('significado')) {
-      return _translation(text);
+      return _translation(text.isNotEmpty ? text : question);
     }
     if (q.contains('partícula') || q.contains('particula') ||
         q.contains('por qué') || q.contains('por que')) {
