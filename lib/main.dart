@@ -677,9 +677,9 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
             top: false,
             child: Center(
               child: _ReaderPill(
-                child: ValueListenableBuilder<PdfViewerController>(
-                  valueListenable: viewer,
-                  builder: (context, _, __) => Text(
+                child: AnimatedBuilder(
+                  animation: viewer,
+                  builder: (context, _) => Text(
                     '\${viewer.pageCount == 0 ? 0 : viewer.currentPage + 1} / \${viewer.pageCount}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .2),
                   ),
