@@ -35,6 +35,13 @@ subprojects {
     }
 }
 
+gradle.projectsEvaluated {
+    subprojects.forEach { project ->
+        project.extensions.findByType<LibraryExtension>()?.compileSdk = 36
+        project.extensions.findByType<ApplicationExtension>()?.compileSdk = 36
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
