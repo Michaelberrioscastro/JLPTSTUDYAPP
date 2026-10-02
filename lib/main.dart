@@ -585,18 +585,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
 }
 
 class PdfReaderPane extends StatefulWidget {
-  const PdfReaderPane({
-    super.key,
-    required this.store,
-    required this.book,
-    required this.onSelection,
-  });
+  const PdfReaderPane({super.key, required this.store, required this.book, required this.onSelection});
   final LibraryStore store;
   final Book book;
   final ValueChanged<String> onSelection;
-
-  @override
-  State<PdfReaderPane> createState() => _PdfReaderPaneState();
+  @override State<PdfReaderPane> createState() => _PdfReaderPaneState();
 }
 
 class _PdfReaderPaneState extends State<PdfReaderPane> {
@@ -609,6 +602,11 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     final bytes = File(widget.book.path).readAsBytesSync();
     editing = PdfEditingController(Uint8List.fromList(bytes));
     viewer = PdfViewerController();
+    // Stylus mode: fingers/palm do not create ink. The PDF editor handles pen input separately.
+    editing.preferences.fingerDrawsInk = false;
+    editing.preferences.showThumbnailSidebar = false;
+    editing.preferences.showBookmarkSidebar = false;
+    editing.preferences.showAnnotationSidebar = false;
     viewer.addListener(changed);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.book.page > 0) viewer.jumpToPage(widget.book.page);
@@ -619,8 +617,7 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     widget.onSelection(viewer.selectedText);
     if (viewer.pageCount > 0) {
       widget.book.page = viewer.currentPage;
-      widget.book.progress =
-          ((viewer.currentPage + 1) / viewer.pageCount).clamp(0, 1);
+      widget.book.progress = ((viewer.currentPage + 1) / viewer.pageCount).clamp(0, 1);
       unawaited(widget.store.save());
     }
   }
@@ -629,9 +626,7 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     await File(widget.book.path).writeAsBytes(editing.bytes, flush: true);
     await widget.store.save();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PDF guardado.')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cambios guardados.')));
   }
 
   @override
@@ -642,32 +637,95 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     super.dispose();
   }
 
+  void setTool(PdfEditTool? tool) {
+    editing.tool = editing.tool == tool ? null : tool;
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PdfEditorView(
-      controller: editing,
-      viewerController: viewer,
-      documentId: widget.book.id,
-      onSave: (bytes) async {
-        await File(widget.book.path).writeAsBytes(bytes, flush: true);
-        await widget.store.save();
-      },
-      toolbarTrailing: [
-        (context, edit, view) => IconButton(
-              tooltip: 'Diccionario',
-              icon: const Icon(Icons.translate_rounded),
-              onPressed: () => showDictionary(context, view.selectedText),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: PdfViewer(
+            controller: viewer, editing: editing, documentId: widget.book.id,
+            backgroundColor: const Color(0xFFE7E4DE),
+            initialFit: PdfViewerFit.page, contextMenuEnabled: true,
+            textSelectionEditing: true, textSelectionMarkup: true,
+          ),
+        ),
+        Positioned(
+          top: 14, left: 14, right: 14,
+          child: SafeArea(
+            bottom: false,
+            child: Row(
+              children: [
+                _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  _ReaderToolButton(icon: Icons.pan_tool_outlined, label: 'Leer', active: editing.tool == null, onTap: () => setTool(null)),
+                  _ReaderToolButton(icon: Icons.edit_rounded, label: 'Lápiz', active: editing.tool == PdfEditTool.ink, onTap: () => setTool(PdfEditTool.ink)),
+                  _ReaderToolButton(icon: Icons.highlight_rounded, label: 'Marcar', active: editing.tool == PdfEditTool.highlight, onTap: () => setTool(PdfEditTool.highlight)),
+                  _ReaderToolButton(icon: Icons.auto_fix_high_rounded, label: 'Borrar', active: editing.tool == PdfEditTool.eraser, onTap: () => setTool(PdfEditTool.eraser)),
+                ])),
+                const Spacer(),
+                _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(tooltip: 'Diccionario', onPressed: () => showDictionary(context, viewer.selectedText), icon: const Icon(Icons.translate_rounded, size: 20)),
+                  IconButton(tooltip: 'Guardar', onPressed: savePdf, icon: const Icon(Icons.cloud_done_outlined, size: 20)),
+                ])),
+              ],
             ),
-        (context, edit, view) => IconButton(
-              tooltip: 'Guardar',
-              icon: const Icon(Icons.save_rounded),
-              onPressed: savePdf,
+          ),
+        ),
+        Positioned(
+          left: 0, right: 0, bottom: 18,
+          child: SafeArea(
+            top: false,
+            child: Center(
+              child: _ReaderPill(
+                child: ValueListenableBuilder<PdfViewerController>(
+                  valueListenable: viewer,
+                  builder: (context, _, __) => Text(
+                    '\${viewer.pageCount == 0 ? 0 : viewer.currentPage + 1} / \${viewer.pageCount}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .2),
+                  ),
+                ),
+              ),
             ),
+          ),
+        ),
       ],
     );
   }
 }
 
+class _ReaderPill extends StatelessWidget {
+  const _ReaderPill({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.white.withValues(alpha: .94), elevation: 8,
+    shadowColor: Colors.black.withValues(alpha: .12),
+    borderRadius: BorderRadius.circular(18),
+    child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), child: child),
+  );
+}
+
+class _ReaderToolButton extends StatelessWidget {
+  const _ReaderToolButton({required this.icon, required this.label, required this.active, required this.onTap});
+  final IconData icon; final String label; final bool active; final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: label,
+    child: IconButton(
+      onPressed: onTap,
+      style: IconButton.styleFrom(
+        backgroundColor: active ? accent.withValues(alpha: .12) : Colors.transparent,
+        foregroundColor: active ? accent : Colors.black54,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+      ),
+      icon: Icon(icon, size: 21),
+    ),
+  );
+}
 class EpubReaderPane extends StatefulWidget {
   const EpubReaderPane({
     super.key,
@@ -846,7 +904,9 @@ class _AssistantSheetState extends State<AssistantSheet> {
         setState(() {
           messages.add({
             'role': 'assistant',
-            'text': 'Configura el asistente en Ajustes. ' + e.toString(),
+            'text': e is StateError && e.message.toString().contains('API')
+                ? 'El asistente necesita una API key para conectarse a un modelo. Configúrala en Ajustes.'
+                : 'No pude obtener una respuesta: ' + e.toString(),
           });
           loading = false;
         });
@@ -990,12 +1050,11 @@ class AiService {
   }) async {
     final endpoint = await secure.read(key: 'ai.endpoint') ??
         'https://api.openai.com/v1/chat/completions';
-    final model = await secure.read(key: 'ai.model') ?? '';
+    final model = await secure.read(key: 'ai.model') ?? 'gpt-6-luna';
     final key = await secure.read(key: 'ai.key') ?? '';
 
-    if (model.isEmpty || key.isEmpty) {
-      throw StateError('Faltan modelo o API key.');
-    }
+    if (key.isEmpty) throw StateError('Falta la API key.');
+    if (model.isEmpty) throw StateError('Falta el modelo.');
 
     final system = [
       'Eres Context Sensei, un profesor de japonés para hispanohablantes.',
@@ -1278,7 +1337,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> load() async {
     endpoint.text = await secure.read(key: 'ai.endpoint') ??
         'https://api.openai.com/v1/chat/completions';
-    model.text = await secure.read(key: 'ai.model') ?? '';
+    model.text = await secure.read(key: 'ai.model') ?? 'gpt-6-luna';
     key.text = await secure.read(key: 'ai.key') ?? '';
     if (mounted) setState(() {});
   }
@@ -1313,7 +1372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'El asistente usa un endpoint compatible con Chat Completions. La API key se guarda en almacenamiento seguro.',
+            'El asistente usa un endpoint compatible con Chat Completions. La API key se guarda en almacenamiento seguro. La app no puede usar tu suscripción de ChatGPT directamente: para IA real necesitas una clave de API.',
           ),
           const SizedBox(height: 18),
           TextField(
