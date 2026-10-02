@@ -668,7 +668,9 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
           ),
         ),
         Positioned(
-          top: 14, left: 14, right: 14,
+          top: 14,
+          left: 14,
+          right: 14,
           child: AnimatedOpacity(
             opacity: _chromeVisible ? 1 : 0,
             duration: const Duration(milliseconds: 180),
@@ -676,21 +678,32 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
               ignoring: !_chromeVisible,
               child: SafeArea(
                 bottom: false,
-            child: Row(
-              children: [
-                _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  _ReaderToolButton(icon: Icons.pan_tool_outlined, label: 'Leer', active: editing.tool == null, onTap: () => setTool(null)),
-                  _ReaderToolButton(icon: Icons.edit_rounded, label: 'Lápiz', active: editing.tool == PdfEditTool.ink, onTap: () => setTool(PdfEditTool.ink)),
-                  _ReaderToolButton(icon: Icons.highlight_rounded, label: 'Marcar', active: editing.tool == PdfEditTool.highlight, onTap: () => setTool(PdfEditTool.highlight)),
-                  _ReaderToolButton(icon: Icons.auto_fix_high_rounded, label: 'Borrar', active: editing.tool == PdfEditTool.eraser, onTap: () => setTool(PdfEditTool.eraser)),
-                ])),
-                const Spacer(),
-                _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  IconButton(tooltip: 'Diccionario', onPressed: () => showDictionary(context, viewer.selectedText), icon: const Icon(Icons.translate_rounded, size: 20)),
-                  IconButton(tooltip: 'Context Sensei', onPressed: () => showAssistant(context, viewer.selectedText, widget.book.title), icon: const Icon(Icons.auto_awesome_rounded, size: 20)),
-                  IconButton(tooltip: 'Guardar', onPressed: savePdf, icon: const Icon(Icons.cloud_done_outlined, size: 20)),
-                ])),
-              ],
+                child: Row(
+                  children: [
+                    _ReaderPill(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ReaderToolButton(icon: Icons.pan_tool_outlined, label: 'Leer', active: editing.tool == null, onTap: () => setTool(null)),
+                          _ReaderToolButton(icon: Icons.edit_rounded, label: 'Lápiz', active: editing.tool == PdfEditTool.ink, onTap: () => setTool(PdfEditTool.ink)),
+                          _ReaderToolButton(icon: Icons.highlight_rounded, label: 'Marcar', active: editing.tool == PdfEditTool.highlight, onTap: () => setTool(PdfEditTool.highlight)),
+                          _ReaderToolButton(icon: Icons.auto_fix_high_rounded, label: 'Borrar', active: editing.tool == PdfEditTool.eraser, onTap: () => setTool(PdfEditTool.eraser)),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    _ReaderPill(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(tooltip: 'Diccionario', onPressed: () => showDictionary(context, viewer.selectedText), icon: const Icon(Icons.translate_rounded, size: 20)),
+                          IconButton(tooltip: 'Context Sensei', onPressed: () => showAssistant(context, viewer.selectedText, widget.book.title), icon: const Icon(Icons.auto_awesome_rounded, size: 20)),
+                          IconButton(tooltip: 'Guardar', onPressed: savePdf, icon: const Icon(Icons.cloud_done_outlined, size: 20)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1450,7 +1463,10 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 24),
           const Text('Qué puede hacer ahora', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
-          const Text('• Analizar texto seleccionado\\n• Explicar partículas frecuentes\\n• Reconocer vocabulario local\\n• Detectar algunas conjugaciones y estructuras\\n• Responder preguntas de seguimiento\\n• Mantener el contexto durante la conversación', height: 1.55),
+          const Text(
+  '• Analizar texto seleccionado\\n• Explicar partículas frecuentes\\n• Reconocer vocabulario local\\n• Detectar algunas conjugaciones y estructuras\\n• Responder preguntas de seguimiento\\n• Mantener el contexto durante la conversación',
+  style: TextStyle(height: 1.55),
+),
           const SizedBox(height: 24),
           const Text('Próxima expansión', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
