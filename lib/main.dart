@@ -590,6 +590,8 @@ class PdfReaderPane extends StatefulWidget {
 class _PdfReaderPaneState extends State<PdfReaderPane> {
   late final PdfEditingController editing;
   late final PdfViewerController viewer;
+  Timer? _chromeTimer;
+  bool _chromeVisible = false;
 
   @override
   void initState() {
@@ -597,8 +599,12 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     final bytes = File(widget.book.path).readAsBytesSync();
     editing = PdfEditingController(Uint8List.fromList(bytes));
     viewer = PdfViewerController();
-    // Stylus mode: fingers/palm do not create ink. The PDF editor handles pen input separately.
+    // Stylus-first mode: fingers/palm never create ink; only the pen draws.
     editing.preferences.fingerDrawsInk = false;
+    editing.preferences.color = const Color(0xFF263238);
+    editing.preferences.strokeWidth = 1.6;
+    editing.preferences.opacity = 0.88;
+    editing.inkCommitDelay = const Duration(milliseconds: 420);
     editing.preferences.showThumbnailSidebar = false;
     editing.preferences.showBookmarkSidebar = false;
     editing.preferences.showAnnotationSidebar = false;
@@ -624,8 +630,17 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cambios guardados.')));
   }
 
+  void showChrome() {
+    _chromeTimer?.cancel();
+    if (mounted && !_chromeVisible) setState(() => _chromeVisible = true);
+    _chromeTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _chromeVisible = false);
+    });
+  }
+
   @override
   void dispose() {
+    _chromeTimer?.cancel();
     unawaited(savePdf());
     editing.dispose();
     viewer.dispose();
