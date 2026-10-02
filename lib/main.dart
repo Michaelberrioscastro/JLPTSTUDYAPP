@@ -709,7 +709,9 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
           ),
         ),
         Positioned(
-          left: 0, right: 0, bottom: 18,
+          left: 0,
+          right: 0,
+          bottom: 18,
           child: SafeArea(
             top: false,
             child: Center(
@@ -718,10 +720,20 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
                 duration: const Duration(milliseconds: 180),
                 child: _ReaderPill(
                   child: AnimatedBuilder(
-                  animation: viewer,
-                  builder: (context, _) => Text(
-                    'Página ' + (viewer.currentPage + 1).toString() + ' / ' + viewer.pageCount.toString(),
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: .2),
+                    animation: viewer,
+                    builder: (context, _) {
+                      return Text(
+                        'Página ' +
+                            (viewer.currentPage + 1).toString() +
+                            ' / ' +
+                            viewer.pageCount.toString(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: .2,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
