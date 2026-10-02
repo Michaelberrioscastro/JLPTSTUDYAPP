@@ -38,7 +38,13 @@ class NihongoReaderApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: accent),
-        scaffoldBackgroundColor: paper,
+        scaffoldBackgroundColor: const Color(0xFFF4F1EB),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF4F1EB),
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: false,
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           filled: true,
           border: OutlineInputBorder(
@@ -48,6 +54,7 @@ class NihongoReaderApp extends StatelessWidget {
         ),
         cardTheme: const CardThemeData(
           elevation: 0,
+          surfaceTintColor: Colors.transparent,
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(22)),
@@ -516,26 +523,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.book.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Diccionario',
-            onPressed: dictionary,
-            icon: const Icon(Icons.translate_rounded),
-          ),
-          IconButton(
-            tooltip: 'Context Sensei',
-            onPressed: assistant,
-            icon: const Icon(Icons.auto_awesome_rounded),
-          ),
-        ],
-      ),
+      appBar: widget.book.type == BookType.pdf
+          ? null
+          : AppBar(
+              title: Text(
+                widget.book.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              actions: [
+                IconButton(
+                  tooltip: 'Diccionario',
+                  onPressed: dictionary,
+                  icon: const Icon(Icons.translate_rounded),
+                ),
+                IconButton(
+                  tooltip: 'Context Sensei',
+                  onPressed: assistant,
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                ),
+              ],
+            ),
       body: Stack(
         children: [
           switch (widget.book.type) {
@@ -554,30 +563,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
               ),
             BookType.doc => LegacyDocPane(book: widget.book),
           },
-          Positioned(
-            right: 18,
-            bottom: 22,
-            child: Row(
-              children: [
-                Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  elevation: 4,
-                  child: IconButton(
-                    tooltip: 'Diccionario',
-                    onPressed: dictionary,
-                    icon: const Icon(Icons.translate_rounded),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FloatingActionButton(
-                  heroTag: 'sensei',
-                  onPressed: assistant,
-                  child: const Icon(Icons.auto_awesome_rounded),
-                ),
-              ],
+          if (widget.book.type != BookType.pdf)
+            Positioned(
+              right: 18,
+              bottom: 22,
+              child: FloatingActionButton.small(
+                heroTag: 'sensei',
+                onPressed: assistant,
+                child: const Icon(Icons.auto_awesome_rounded),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -669,6 +664,7 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
                 const Spacer(),
                 _ReaderPill(child: Row(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(tooltip: 'Diccionario', onPressed: () => showDictionary(context, viewer.selectedText), icon: const Icon(Icons.translate_rounded, size: 20)),
+                  IconButton(tooltip: 'Context Sensei', onPressed: () => showAssistant(context, viewer.selectedText, widget.book.title), icon: const Icon(Icons.auto_awesome_rounded, size: 20)),
                   IconButton(tooltip: 'Guardar', onPressed: savePdf, icon: const Icon(Icons.cloud_done_outlined, size: 20)),
                 ])),
               ],
