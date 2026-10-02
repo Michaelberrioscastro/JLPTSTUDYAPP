@@ -925,13 +925,16 @@ class _AssistantSheetState extends State<AssistantSheet> {
       }
     } catch (e) {
       if (mounted) {
+        final error = e.toString();
+        final text = e is SocketException
+            ? 'No se puede conectar con OpenAI desde este dispositivo. Revisa que el Xiaomi tenga Internet y prueba abrir https://api.openai.com en el navegador. Si otras apps tienen Internet pero Nihongo Reader no, revisaremos la configuración de red de Android.'
+            : e is TimeoutException
+                ? 'OpenAI tardó demasiado en responder. Comprueba tu conexión y vuelve a intentarlo.'
+                : e is StateError && e.message.toString().contains('API')
+                    ? 'El asistente necesita una API key. Configúrala en Ajustes → Context Sensei.'
+                    : 'No pude obtener una respuesta: ' + error;
         setState(() {
-          messages.add({
-            'role': 'assistant',
-            'text': e is StateError && e.message.toString().contains('API')
-                ? 'El asistente necesita una API key para conectarse a un modelo. Configúrala en Ajustes.'
-                : 'No pude obtener una respuesta: ' + e.toString(),
-          });
+          messages.add({'role': 'assistant', 'text': text});
           loading = false;
         });
       }
@@ -1111,7 +1114,8 @@ class AiService {
       'Texto seleccionado: ' + selected,
     ].join('\\n');
 
-    final response = await http.post(
+    final response = await http
+        .post(
       Uri.parse(endpoint),
       headers: {
         'Content-Type': 'application/json',
@@ -1122,7 +1126,8 @@ class AiService {
         'instructions': system,
         'input': question,
       }),
-    );
+    )
+        .timeout(const Duration(seconds: 45));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw StateError('HTTP ' + response.statusCode.toString());
