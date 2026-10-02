@@ -9,7 +9,6 @@ import 'package:docx_file_viewer/docx_file_viewer.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_epub_reader/flutter_epub_reader.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -911,33 +910,18 @@ class _AssistantSheetState extends State<AssistantSheet> {
       messages.add({'role': 'user', 'text': q});
     });
     input.clear();
-    try {
-      final answer = await AiService().ask(
-        book: widget.bookTitle,
-        selected: widget.selectedText,
-        question: q,
-      );
-      if (mounted) {
-        setState(() {
-          messages.add({'role': 'assistant', 'text': answer});
-          loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        final error = e.toString();
-        final text = e is SocketException
-            ? 'No se puede conectar con OpenAI desde este dispositivo. Revisa que el Xiaomi tenga Internet y prueba abrir https://api.openai.com en el navegador. Si otras apps tienen Internet pero Nihongo Reader no, revisaremos la configuración de red de Android.'
-            : e is TimeoutException
-                ? 'OpenAI tardó demasiado en responder. Comprueba tu conexión y vuelve a intentarlo.'
-                : e is StateError && e.message.toString().contains('API')
-                    ? 'El asistente necesita una API key. Configúrala en Ajustes → Context Sensei.'
-                    : 'No pude obtener una respuesta: ' + error;
-        setState(() {
-          messages.add({'role': 'assistant', 'text': text});
-          loading = false;
-        });
-      }
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    final answer = LocalSensei().answer(
+      book: widget.bookTitle,
+      selected: widget.selectedText,
+      question: q,
+      history: messages,
+    );
+    if (mounted) {
+      setState(() {
+        messages.add({'role': 'assistant', 'text': answer});
+        loading = false;
+      });
     }
   }
 
@@ -982,17 +966,14 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Context Sensei', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
-                        Text('Tu asistente de japonés', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                        Text('Sensei local · funciona sin Internet', style: TextStyle(fontSize: 12, color: Colors.black45)),
                       ],
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Configurar IA',
-                    onPressed: () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                    },
-                    icon: const Icon(Icons.tune_rounded, size: 20),
+                    tooltip: 'Cerrar',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded, size: 20),
                   ),
                 ],
               ),
@@ -1005,11 +986,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                   color: accent.withValues(alpha: .08),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Text(
-                  widget.selectedText,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: Text(widget.selectedText, maxLines: 4, overflow: TextOverflow.ellipsis),
               ),
             Expanded(
               child: messages.isEmpty
@@ -1017,7 +994,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       child: Padding(
                         padding: EdgeInsets.all(30),
                         child: Text(
-                          'Pregúntame por gramática, contexto, tono, vocabulario o traducción natural.',
+                          'Puedo ayudarte con traducción, partículas, conjugaciones, vocabulario, gramática y contexto. No necesitas Internet.',
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -1029,8 +1006,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                         final m = messages[i];
                         final user = m['role'] == 'user';
                         return Align(
-                          alignment:
-                              user ? Alignment.centerRight : Alignment.centerLeft,
+                          alignment: user ? Alignment.centerRight : Alignment.centerLeft,
                           child: Container(
                             constraints: const BoxConstraints(maxWidth: 600),
                             margin: const EdgeInsets.only(bottom: 9),
@@ -1041,10 +1017,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                             ),
                             child: Text(
                               m['text'] ?? '',
-                              style: TextStyle(
-                                color: user ? Colors.white : Colors.black87,
-                                height: 1.45,
-                              ),
+                              style: TextStyle(color: user ? Colors.white : Colors.black87, height: 1.45),
                             ),
                           ),
                         );
@@ -1062,7 +1035,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                       maxLines: 4,
                       onSubmitted: (_) => ask(),
                       decoration: const InputDecoration(
-                        hintText: 'Pregunta sobre esta frase…',
+                        hintText: 'Pregunta a Sensei…',
                         prefixIcon: Icon(Icons.chat_bubble_outline_rounded),
                       ),
                     ),
@@ -1071,11 +1044,7 @@ class _AssistantSheetState extends State<AssistantSheet> {
                   IconButton.filled(
                     onPressed: loading ? null : ask,
                     icon: loading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.arrow_upward_rounded),
                   ),
                 ],
@@ -1088,67 +1057,133 @@ class _AssistantSheetState extends State<AssistantSheet> {
   }
 }
 
-class AiService {
-  static const secure = FlutterSecureStorage();
+class LocalSensei {
+  static const particles = <String, String>{
+    'は': 'marca el tema de la oración.',
+    'が': 'marca el sujeto o información focal.',
+    'を': 'marca normalmente el objeto directo.',
+    'に': 'puede marcar destino, momento, existencia o destinatario.',
+    'で': 'puede marcar el lugar de una acción o un medio.',
+    'と': 'puede indicar compañía («con») o aparecer en una cita.',
+    'も': 'suele expresar «también» o «tampoco».',
+    'の': 'conecta elementos, a menudo con relación posesiva o atributiva.',
+    'から': 'puede expresar origen o razón, según el contexto.',
+    'まで': 'indica normalmente un límite («hasta»).',
+  };
 
-  Future<String> ask({
+  static const vocabulary = <String, String>{
+    '昨日': 'きのう — ayer',
+    '今日': 'きょう — hoy',
+    '明日': 'あした / あす — mañana',
+    '友達': 'ともだち — amigo/a',
+    '映画': 'えいが — película',
+    '学校': 'がっこう — escuela',
+    '先生': 'せんせい — profesor/a',
+    '学生': 'がくせい — estudiante',
+    '日本': 'にほん / にっぽん — Japón',
+    '日本語': 'にほんご — idioma japonés',
+    '本': 'ほん — libro',
+    '時間': 'じかん — tiempo / horas',
+    '食べる': 'たべる — comer',
+    '飲む': 'のむ — beber',
+    '見る': 'みる — ver / mirar',
+    '行く': 'いく — ir',
+    '来る': 'くる — venir',
+    'する': 'する — hacer',
+    '読む': 'よむ — leer',
+    '書く': 'かく — escribir',
+  };
+
+  String answer({
     required String book,
     required String selected,
     required String question,
-  }) async {
-    final endpoint = await secure.read(key: 'ai.endpoint') ??
-        'https://api.openai.com/v1/responses';
-    final model = await secure.read(key: 'ai.model') ?? 'gpt-6-luna';
-    final key = await secure.read(key: 'ai.key') ?? '';
+    required List<Map<String, String>> history,
+  }) {
+    final q = question.toLowerCase();
+    final text = selected.trim();
 
-    if (key.isEmpty) throw StateError('Falta la API key.');
-    if (model.isEmpty) throw StateError('Falta el modelo.');
-
-    final system = [
-      'Eres Context Sensei, un profesor de japonés para hispanohablantes.',
-      'Explica gramática, vocabulario, registro y contexto con precisión.',
-      'Distingue traducción literal de traducción natural.',
-      'No inventes información que no esté en la frase.',
-      'Usa español como idioma principal y conserva ejemplos japoneses.',
-      'Libro: ' + book,
-      'Texto seleccionado: ' + selected,
-    ].join('\\n');
-
-    final response = await http
-        .post(
-      Uri.parse(endpoint),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + key,
-      },
-      body: jsonEncode({
-        'model': model,
-        'instructions': system,
-        'input': question,
-      }),
-    )
-        .timeout(const Duration(seconds: 45));
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw StateError('HTTP ' + response.statusCode.toString());
+    if (q.contains('qué significa') || q.contains('que significa') ||
+        q.contains('traduce') || q.contains('traduc') || q.contains('significado')) {
+      return _translation(text);
     }
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final output = data['output'] as List<dynamic>? ?? const [];
-    final parts = <String>[];
-    for (final item in output) {
-      if (item is! Map<String, dynamic>) continue;
-      final content = item['content'] as List<dynamic>? ?? const [];
-      for (final part in content) {
-        if (part is Map<String, dynamic> &&
-            part['type'] == 'output_text' &&
-            part['text'] is String) {
-          parts.add(part['text'] as String);
-        }
-      }
+    if (q.contains('partícula') || q.contains('particula') ||
+        q.contains('por qué') || q.contains('por que')) {
+      return _particleExplanation(text);
     }
-    final answer = parts.join('\n').trim();
-    if (answer.isEmpty) throw StateError('Respuesta vacía.');
-    return answer;
+    if (q.contains('gramática') || q.contains('gramatica') ||
+        q.contains('estructura') || q.contains('conjug')) {
+      return _grammar(text);
+    }
+    if (q.contains('palabra') || q.contains('vocabulario') || q.contains('vocab')) {
+      return _vocabulary(text);
+    }
+    if (q.contains('nivel') || q.contains('jlpt')) {
+      return _level(text);
+    }
+    if (q.contains('hola') || q.contains('buenas') || q == 'こんにちは') {
+      return 'こんにちは！ Soy Context Sensei. Estoy integrado en Nihongo Reader y funciono sin conexión. Pregúntame por una palabra, partícula, gramática, traducción o nivel JLPT.';
+    }
+    if (text.isNotEmpty) {
+      return 'Estoy analizando «' + text + '».\\n\\n'
+          'Puedo ayudarte con:\\n'
+          '• «¿Qué significa?»\\n'
+          '• «¿Por qué usa esta partícula?»\\n'
+          '• «¿Qué gramática aparece?»\\n'
+          '• «¿Qué palabras importantes hay?»\\n'
+          '• «¿Qué nivel JLPT tiene?»\\n\\n'
+          'Haz una pregunta de seguimiento y mantendré el contexto de esta conversación.';
+    }
+    return 'Selecciona una frase japonesa en el libro y pregúntame sobre ella.';
+  }
+
+  String _translation(String text) {
+    if (text.isEmpty) return 'No hay una frase seleccionada.';
+    final known = vocabulary.entries.where((e) => text.contains(e.key))
+        .map((e) => '• ' + e.key + ': ' + e.value).toList();
+    final particleList = particles.keys.where(text.contains).toList();
+    return 'Análisis de «' + text + '»\\n\\n' +
+        (known.isEmpty ? 'No tengo todavía una entrada local para las palabras de esta frase.'
+            : 'Vocabulario reconocido:\\n' + known.join('\\n')) +
+        '\\n\\n' +
+        (particleList.isEmpty ? 'No detecté una partícula frecuente de mi base local.'
+            : 'Partículas detectadas: ' + particleList.join('、')) +
+        '\\n\\nPara una traducción completa de cualquier frase, ampliaremos progresivamente la base lingüística local de Sensei.';
+  }
+
+  String _particleExplanation(String text) {
+    final found = particles.keys.where(text.contains).toList();
+    if (found.isEmpty) return 'No detecté は、が、を、に、で、へ、と、も、の、から o まで en el fragmento seleccionado.';
+    final lines = found.map((p) => '• ' + p + ' — ' + particles[p]!).join('\\n');
+    return 'En «' + text + '» detecto estas partículas:\\n\\n' + lines +
+        '\\n\\nEl significado exacto depende de la construcción y del contexto.';
+  }
+
+  String _grammar(String text) {
+    if (text.isEmpty) return 'Selecciona una frase para analizar su gramática.';
+    final clues = <String>[];
+    if (text.contains('ました')) clues.add('• 〜ました: forma pasada cortés de los verbos.');
+    if (text.contains('ません')) clues.add('• 〜ません: forma negativa cortés.');
+    if (text.contains('たい')) clues.add('• 〜たい: expresa deseo de hacer algo.');
+    if (text.contains('ている')) clues.add('• 〜ている: puede expresar una acción en curso o un estado resultante.');
+    if (text.contains('ない')) clues.add('• 〜ない: forma negativa informal de muchos verbos/adjetivos.');
+    if (clues.isEmpty) return 'No detecté todavía una estructura que pueda identificar con seguridad en «' + text + '».';
+    return 'Estructuras reconocidas en «' + text + '»:\\n\\n' + clues.join('\\n');
+  }
+
+  String _vocabulary(String text) {
+    final found = vocabulary.entries.where((e) => text.contains(e.key))
+        .map((e) => '• ' + e.key + ': ' + e.value).toList();
+    if (found.isEmpty) return 'No encontré palabras de mi vocabulario local en «' + text + '». La base se ampliará con contenido JLPT.';
+    return 'Vocabulario reconocido:\\n\\n' + found.join('\\n');
+  }
+
+  String _level(String text) {
+    final score = vocabulary.keys.where(text.contains).length +
+        particles.keys.where(text.contains).length;
+    if (score >= 5) return 'Hay varios elementos básicos reconocibles. El nivel JLPT exacto no puede determinarse de forma fiable solo con esta heurística.';
+    if (score >= 2) return 'La frase contiene elementos frecuentes de nivel inicial. No sería fiable asignarle un nivel JLPT exacto todavía.';
+    return 'No tengo suficiente información local para asignar un nivel JLPT fiable a esta frase.';
   }
 }
 
@@ -1373,50 +1408,8 @@ class _DictionarySheetState extends State<DictionarySheet> {
   }
 }
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  static const secure = FlutterSecureStorage();
-  final endpoint = TextEditingController();
-  final model = TextEditingController();
-  final key = TextEditingController();
-  bool hideKey = true;
-
-  @override
-  void initState() {
-    super.initState();
-    load();
-  }
-
-  Future<void> load() async {
-    endpoint.text = await secure.read(key: 'ai.endpoint') ??
-        'https://api.openai.com/v1/chat/completions';
-    model.text = await secure.read(key: 'ai.model') ?? 'gpt-6-luna';
-    key.text = await secure.read(key: 'ai.key') ?? '';
-    if (mounted) setState(() {});
-  }
-
-  Future<void> save() async {
-    await secure.write(key: 'ai.endpoint', value: endpoint.text.trim());
-    await secure.write(key: 'ai.model', value: model.text.trim());
-    await secure.write(key: 'ai.key', value: key.text.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Configuración guardada.')));
-  }
-
-  @override
-  void dispose() {
-    endpoint.dispose();
-    model.dispose();
-    key.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1425,73 +1418,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text(
-            'Context Sensei',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-          ),
+          const Text('Context Sensei', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text(
-            'El asistente usa la API de Responses de OpenAI. La API key se guarda en almacenamiento seguro. La app no puede usar tu suscripción de ChatGPT directamente: para IA real necesitas una clave de API.',
-          ),
+          const Text('Sensei funciona de forma local dentro de Nihongo Reader. No necesita API key, cuenta de OpenAI ni conexión a Internet.'),
           const SizedBox(height: 18),
-          TextField(
-            controller: endpoint,
-            decoration: const InputDecoration(
-              labelText: 'Endpoint',
-              prefixIcon: Icon(Icons.link_rounded),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: model,
-            decoration: const InputDecoration(
-              labelText: 'Modelo',
-              prefixIcon: Icon(Icons.memory_rounded),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: key,
-            obscureText: hideKey,
-            decoration: InputDecoration(
-              labelText: 'API key',
-              prefixIcon: const Icon(Icons.key_rounded),
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => hideKey = !hideKey),
-                icon: Icon(
-                  hideKey
-                      ? Icons.visibility_rounded
-                      : Icons.visibility_off_rounded,
-                ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 46, height: 46,
+                    decoration: BoxDecoration(color: accent.withValues(alpha: .10), borderRadius: BorderRadius.circular(14)),
+                    child: const Icon(Icons.offline_bolt_rounded, color: accent),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Modo local activo', style: TextStyle(fontWeight: FontWeight.w800)),
+                        SizedBox(height: 4),
+                        Text('Análisis y conversación disponibles sin Internet.'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: save,
-            icon: const Icon(Icons.save_rounded),
-            label: const Text('Guardar'),
-          ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
+          const Text('Qué puede hacer ahora', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          const Text('• Analizar texto seleccionado\\n• Explicar partículas frecuentes\\n• Reconocer vocabulario local\\n• Detectar algunas conjugaciones y estructuras\\n• Responder preguntas de seguimiento\\n• Mantener el contexto durante la conversación', height: 1.55),
+          const SizedBox(height: 24),
+          const Text('Próxima expansión', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          const Text('La arquitectura está preparada para ampliar Sensei con una base local de vocabulario, gramática y contenido JLPT, aumentando sus respuestas sin depender de servicios externos.'),
+          const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 18),
-          const Text(
-            'Biblioteca',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-          ),
+          const Text('Biblioteca', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text(
-            'Los libros importados se copian al almacenamiento privado de la aplicación. El selector de Android entrega acceso solo al archivo que eliges.',
-          ),
+          const Text('Los libros importados se copian al almacenamiento privado de la aplicación. El selector de Android entrega acceso solo al archivo que eliges.'),
           const SizedBox(height: 24),
-          const Text(
-            'Xiaomi Pad 5 + stylus',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-          ),
+          const Text('Xiaomi Pad 5 + stylus', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text(
-            'El editor PDF utilizado por la app ofrece tinta con presión, suavizado, rechazo de palma y borrado de tinta cuando el dispositivo expone esos eventos al sistema.',
-          ),
+          const Text('El editor PDF utilizado por la app ofrece tinta con presión, suavizado, rechazo de palma y borrado de tinta cuando el dispositivo expone esos eventos al sistema.'),
         ],
       ),
     );
