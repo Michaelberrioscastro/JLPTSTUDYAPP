@@ -21,15 +21,13 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
 
-    plugins.withId("com.android.library") {
+// ONNX Runtime currently declares compileSdk 33 in its Android plugin.
+// Override only that module after its own build script has configured it.
+project(":onnxruntime") {
+    afterEvaluate {
         extensions.configure<LibraryExtension> {
-            compileSdk = 36
-        }
-    }
-
-    plugins.withId("com.android.application") {
-        extensions.configure<ApplicationExtension> {
             compileSdk = 36
         }
     }
