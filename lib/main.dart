@@ -932,15 +932,36 @@ class _AssistantSheetState extends State<AssistantSheet> {
                 borderRadius: BorderRadius.circular(99),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.all(18),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 12, 12),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome_rounded, color: accent),
-                  SizedBox(width: 10),
-                  Text(
-                    'Context Sensei',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: .10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.auto_awesome_rounded, color: accent, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Context Sensei', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+                        Text('Tu asistente de japonés', style: TextStyle(fontSize: 12, color: Colors.black45)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Configurar IA',
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                    },
+                    icon: const Icon(Icons.tune_rounded, size: 20),
                   ),
                 ],
               ),
