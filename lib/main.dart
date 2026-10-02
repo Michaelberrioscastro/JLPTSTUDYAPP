@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:dart_pdf_editor/dart_pdf_editor.dart';
 import 'package:docx_file_viewer/docx_file_viewer.dart';
@@ -10,7 +11,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_epub_reader/flutter_epub_reader.dart';
 import 'package:pdf_document/pdf_document.dart';
-import 'package:pdf_ocr_ondevice/pdf_ocr_ondevice.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -894,6 +895,65 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 }
 
+class _MlKitPdfOcrEngine implements PdfOcrEngine {
+  final TextRecognizer _recognizer = TextRecognizer(
+    script: TextRecognitionScript.japanese,
+  );
+
+  @override
+  Future<List<PdfOcrSpan>> recognize(PdfOcrPageImage page) async {
+    final byteData = await page.image.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return const [];
+
+    final tempDir = await getTemporaryDirectory();
+    final file = File(
+      p.join(tempDir.path, 'nihongo_ocr_${DateTime.now().microsecondsSinceEpoch}.png'),
+    );
+
+    try {
+      await file.writeAsBytes(
+        byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+        flush: true,
+      );
+      final result = await _recognizer.processImage(InputImage.fromFile(file));
+      final spans = <PdfOcrSpan>[];
+
+      for (final block in result.blocks) {
+        for (final line in block.lines) {
+          final elements = line.elements;
+          if (elements.isEmpty) {
+            final text = line.text.trim();
+            if (text.isNotEmpty) {
+              spans.add(PdfOcrSpan(
+                text: text,
+                bounds: page.userSpaceRect(line.boundingBox),
+                confidence: line.confidence ?? 1,
+              ));
+            }
+            continue;
+          }
+          for (final element in elements) {
+            final text = element.text.trim();
+            if (text.isEmpty) continue;
+            spans.add(PdfOcrSpan(
+              text: text,
+              bounds: page.userSpaceRect(element.boundingBox),
+              confidence: element.confidence ?? line.confidence ?? 1,
+            ));
+          }
+        }
+      }
+      return spans;
+    } finally {
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> dispose() => _recognizer.close();
+}
+
 class PdfReaderPane extends StatefulWidget {
   const PdfReaderPane({super.key, required this.store, required this.book, required this.onSelection});
   final LibraryStore store;
@@ -968,33 +1028,35 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
   }
 
   Future<void> runOcr() async {
-    if (!PdfOcrModelManager.isSupported) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OCR local no está disponible en este dispositivo.')),
-        );
-      }
-      return;
-    }
     showChrome();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preparando OCR local… La primera vez puede descargar el modelo.')),
+        const SnackBar(
+          content: Text('Preparando OCR local… el modelo japonés está integrado en la aplicación.'),
+        ),
       );
     }
-    PdfOcrModelManager? manager;
-    OnDeviceOcrEngine? engine;
+
+    final engine = _MlKitPdfOcrEngine();
     try {
-      manager = PdfOcrModelManager();
-      final model = PdfOcrModels.ppOcrV5Mobile;
-      if (!await manager.isDownloaded(model)) {
-        await manager.download(model);
-      }
-      engine = await OnDeviceOcrEngine.fromDownloadedModel(manager, model);
       final editor = PdfEditor(PdfDocument.open(editing.bytes));
+      var totalSpans = 0;
       for (var page = 0; page < editor.document.pageCount; page++) {
-        await editor.applyOcr(page, engine, pixelRatio: 2);
+        totalSpans += await editor.applyOcr(page, engine, pixelRatio: 2);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              duration: const Duration(milliseconds: 900),
+              content: Text('OCR: página ${page + 1}/${editor.document.pageCount}'),
+            ),
+          );
+        }
       }
+
+      if (totalSpans == 0) {
+        throw StateError('No se detectó texto. Prueba con una página más nítida o con mayor resolución.');
+      }
+
       final ocrBytes = editor.save();
       final oldEditing = editing;
       editing = PdfEditingController(ocrBytes);
@@ -1006,10 +1068,13 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
       editing.preferences.showBookmarkSidebar = false;
       editing.preferences.showAnnotationSidebar = false;
       oldEditing.dispose();
+
+      await savePdf();
+
       if (mounted) {
         setState(() {});
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OCR listo: el texto de las páginas escaneadas ya se puede seleccionar y copiar.')),
+          SnackBar(content: Text('OCR listo: se reconocieron $totalSpans fragmentos de texto. Ahora puedes seleccionar, buscar y copiar el texto detectado.')),
         );
       }
     } catch (e) {
@@ -1019,11 +1084,9 @@ class _PdfReaderPaneState extends State<PdfReaderPane> {
         );
       }
     } finally {
-      await engine?.dispose();
-      manager?.close();
+      await engine.dispose();
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
