@@ -205,8 +205,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
       await widget.store.importFile(picked);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('No se pudo importar: ' + e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo importar: ' + e.toString())),
+      );
     }
   }
 
@@ -214,8 +215,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
     widget.store.touch(b);
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => ReaderScreen(store: widget.store, book: b)),
+      MaterialPageRoute(
+        builder: (_) => ReaderScreen(store: widget.store, book: b),
+      ),
     );
+  }
+
+  String greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Buenos días';
+    if (hour < 19) return 'Buenas tardes';
+    return 'Buenas noches';
   }
 
   @override
@@ -228,234 +238,229 @@ class _LibraryScreenState extends State<LibraryScreen> {
             .toList();
         final recent = [...widget.store.books]
           ..sort((a, b) => b.lastOpened.compareTo(a.lastOpened));
+        final current = recent.isNotEmpty ? recent.first : null;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Nihongo Reader',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Ajustes',
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                ),
-                icon: const Icon(Icons.tune_rounded),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ),
+          backgroundColor: const Color(0xFFF3F0E9),
           floatingActionButton: FloatingActionButton.extended(
+            elevation: 3,
+            backgroundColor: const Color(0xFF242038),
+            foregroundColor: Colors.white,
             onPressed: addBook,
             icon: const Icon(Icons.add_rounded),
-            label: const Text('Añadir libro'),
+            label: const Text(
+              'Añadir libro',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           body: CustomScrollView(
             slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                sliver: SliverToBoxAdapter(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF242038), Color(0xFF4A3F7A)],
+              SliverAppBar(
+                backgroundColor: const Color(0xFFF3F0E9),
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                floating: true,
+                snap: true,
+                toolbarHeight: 76,
+                titleSpacing: 22,
+                title: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NIHONGO READER',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.1,
+                        color: Color(0xFF242038),
                       ),
                     ),
-                    child: Row(
+                    SizedBox(height: 3),
+                    Text(
+                      'Biblioteca',
+                      style: TextStyle(
+                        fontSize: 27,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF242038),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Ajustes',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.tune_rounded),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ),
+
+              // Editorial welcome / status area.
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
+                sliver: SliverToBoxAdapter(
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 205),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF242038),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Stack(
                       children: [
-                        const Expanded(
+                        Positioned(
+                          right: -35,
+                          top: -55,
+                          child: Container(
+                            width: 190,
+                            height: 190,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: .07),
+                                width: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          right: 28,
+                          bottom: 22,
+                          child: Text(
+                            '日本語',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: .10),
+                              fontSize: 58,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(26),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Tu biblioteca de estudio',
+                                greeting(),
+                                style: const TextStyle(
+                                  color: Color(0xFFD9D3F5),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Tu espacio para leer\njaponés.',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 26,
+                                  fontSize: 29,
+                                  height: 1.05,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              SizedBox(height: 8),
+                              const SizedBox(height: 13),
                               Text(
-                                'Lee, escribe, consulta y aprende dentro del libro.',
-                                style: TextStyle(color: Colors.white70),
+                                current == null
+                                    ? 'Importa tu primer libro y empieza a estudiar.'
+                                    : 'Continúa donde lo dejaste y sigue aprendiendo.',
+                                style: const TextStyle(
+                                  color: Colors.white60,
+                                  fontSize: 14,
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: addBook,
-                          icon: const Icon(Icons.add_rounded),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-              if (recent.isNotEmpty)
+
+              if (current != null)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 25),
                   sliver: SliverToBoxAdapter(
-                    child: Card(
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(22),
-                        onTap: () => open(recent.first),
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Row(
-                            children: [
-                              BookIcon(type: recent.first.type, large: true),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Continuar leyendo',
-                                      style: TextStyle(
-                                        color: accent,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      recent.first.title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    LinearProgressIndicator(
-                                      value: recent.first.progress,
-                                      minHeight: 6,
-                                      borderRadius: BorderRadius.circular(99),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
+                    child: _ContinueReadingCard(
+                      book: current,
+                      onTap: () => open(current),
+                    ),
+                  ),
+                ),
+
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                sliver: SliverToBoxAdapter(
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Mis libros',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF242038),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
-                sliver: SliverToBoxAdapter(
-                  child: TextField(
-                    onChanged: (v) => setState(() => query = v),
-                    decoration: const InputDecoration(
-                      hintText: 'Buscar en tu biblioteca…',
-                      prefixIcon: Icon(Icons.search_rounded),
-                    ),
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
-                sliver: items.isEmpty
-                    ? SliverToBoxAdapter(
-                        child: Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(50),
-                            child: Column(
-                              children: [
-                                const Icon(Icons.library_books_outlined,
-                                    size: 70, color: Colors.black26),
-                                const SizedBox(height: 14),
-                                const Text(
-                                  'Tu biblioteca está vacía',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Importa PDF, EPUB, DOCX o DOC desde el selector de archivos.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 18),
-                                FilledButton.icon(
-                                  onPressed: addBook,
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Importar'),
-                                ),
-                              ],
+                      const SizedBox(width: 9),
+                      if (items.isNotEmpty)
+                        Text(
+                          items.length.toString(),
+                          style: const TextStyle(
+                            color: Colors.black38,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      const Spacer(),
+                      SizedBox(
+                        width: 250,
+                        height: 46,
+                        child: TextField(
+                          onChanged: (v) => setState(() => query = v),
+                          decoration: InputDecoration(
+                            hintText: 'Buscar…',
+                            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: .72),
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
                             ),
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 110),
+                sliver: items.isEmpty
+                    ? SliverToBoxAdapter(
+                        child: _EmptyLibrary(onAdd: addBook),
                       )
                     : SliverGrid(
                         gridDelegate:
                             const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 310,
-                          mainAxisExtent: 270,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
+                          maxCrossAxisExtent: 330,
+                          mainAxisExtent: 292,
+                          crossAxisSpacing: 18,
+                          mainAxisSpacing: 18,
                         ),
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final b = items[index];
-                            return Card(
-                              clipBehavior: Clip.antiAlias,
-                              child: InkWell(
-                                onTap: () => open(b),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          BookIcon(type: b.type),
-                                          const Spacer(),
-                                          PopupMenuButton<String>(
-                                            onSelected: (v) async {
-                                              if (v == 'delete') {
-                                                await widget.store.remove(b);
-                                              }
-                                            },
-                                            itemBuilder: (_) => const [
-                                              PopupMenuItem(
-                                                value: 'delete',
-                                                child: Text('Eliminar'),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        b.title,
-                                        maxLines: 4,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 19,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      LinearProgressIndicator(
-                                        value: b.progress,
-                                        minHeight: 6,
-                                        borderRadius: BorderRadius.circular(99),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text((b.progress * 100).round().toString() + '%'),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                            return _BookCard(
+                              book: b,
+                              onTap: () => open(b),
+                              onDelete: () => widget.store.remove(b),
                             );
                           },
                           childCount: items.length,
@@ -466,6 +471,315 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ContinueReadingCard extends StatelessWidget {
+  const _ContinueReadingCard({required this.book, required this.onTap});
+  final Book book;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (book.progress * 100).round();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.black.withValues(alpha: .055)),
+          ),
+          child: Row(
+            children: [
+              _CoverBlock(book: book, width: 82, height: 108),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'CONTINUAR LEYENDO',
+                      style: TextStyle(
+                        color: accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        height: 1.15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: book.progress.clamp(0, 1),
+                              minHeight: 6,
+                              backgroundColor: const Color(0xFFE7E3DC),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          '$percent%',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Icon(Icons.arrow_forward_rounded, color: accent),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BookCard extends StatelessWidget {
+  const _BookCard({
+    required this.book,
+    required this.onTap,
+    required this.onDelete,
+  });
+  final Book book;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final percent = (book.progress * 100).round();
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _CoverBlock(book: book, width: double.infinity, height: double.infinity),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: .28),
+                      shape: const CircleBorder(),
+                      child: PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_horiz_rounded, color: Colors.white),
+                        onSelected: (v) async {
+                          if (v == 'delete') await onDelete();
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Eliminar de la biblioteca'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(15, 13, 15, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    book.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                            value: book.progress.clamp(0, 1),
+                            minHeight: 4,
+                            backgroundColor: const Color(0xFFE8E4DD),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$percent%',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.black45,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CoverBlock extends StatelessWidget {
+  const _CoverBlock({
+    required this.book,
+    required this.width,
+    required this.height,
+  });
+  final Book book;
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (book.type) {
+      BookType.pdf => const [Color(0xFF242038), Color(0xFF4A3F7A)],
+      BookType.epub => const [Color(0xFF263B35), Color(0xFF5A786C)],
+      BookType.docx => const [Color(0xFF37455F), Color(0xFF6B7894)],
+      BookType.doc => const [Color(0xFF4D4037), Color(0xFF806E60)],
+    };
+    final label = switch (book.type) {
+      BookType.pdf => 'PDF',
+      BookType.epub => 'EPUB',
+      BookType.docx => 'DOCX',
+      BookType.doc => 'DOC',
+    };
+
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colors,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -35,
+            top: -35,
+            child: Container(
+              width: 130,
+              height: 130,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: .08),
+                  width: 20,
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.6,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  book.title,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyLibrary extends StatelessWidget {
+  const _EmptyLibrary({required this.onAdd});
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 55),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .65),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.black.withValues(alpha: .05)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.menu_book_rounded, size: 48, color: accent),
+          const SizedBox(height: 15),
+          const Text(
+            'Tu biblioteca está esperando',
+            style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Añade un PDF, EPUB o documento para empezar a leer y estudiar japonés.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Añadir primer libro'),
+          ),
+        ],
+      ),
     );
   }
 }
